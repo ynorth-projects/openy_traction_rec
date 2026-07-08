@@ -1,9 +1,10 @@
 <?php
 
-namespace Drupal\openy_traction_rec_import\Commands;
+namespace Drupal\openy_traction_rec_import\Drush\Commands;
 
+use Consolidation\SiteAlias\SiteAliasManagerAwareInterface;
 use Consolidation\SiteAlias\SiteAliasManagerAwareTrait;
-use Consolidation\SiteProcess\ProcessManagerAwareTrait;
+use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\File\FileSystemInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
@@ -12,83 +13,35 @@ use Drupal\node\NodeInterface;
 use Drupal\openy_traction_rec_import\Cleaner;
 use Drupal\openy_traction_rec_import\Importer;
 use Drupal\openy_traction_rec_import\TractionRecFetcher;
+use Drush\Attributes as CLI;
+use Drush\Commands\AutowireTrait;
 use Drush\Commands\DrushCommands;
-use Drush\Drush;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * OPENY Traction Rec import drush commands.
  */
-class OpenyTractionRecImportCommands extends DrushCommands {
+final class OpenyTractionRecImportCommands extends DrushCommands implements SiteAliasManagerAwareInterface {
 
-  use ProcessManagerAwareTrait;
+  use AutowireTrait;
   use SiteAliasManagerAwareTrait;
   use StringTranslationTrait;
 
-  /**
-   * The entity type manager.
-   *
-   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
-   */
-  protected $entityTypeManager;
-
-  /**
-   * The importer service.
-   *
-   * @var \Drupal\openy_traction_rec_import\Importer
-   */
-  protected $importer;
-
-  /**
-   * The OPENY sessions cleaner service.
-   *
-   * @var \Drupal\openy_traction_rec_import\Cleaner
-   */
-  protected $cleaner;
-
-  /**
-   * The file system service.
-   *
-   * @var \Drupal\Core\File\FileSystemInterface
-   */
-  protected $fileSystem;
-
-  /**
-   * Traction Rec fetcher service.
-   *
-   * @var \Drupal\openy_traction_rec_import\TractionRecFetcher
-   */
-  protected $tractionRecFetcher;
-
-  /**
-   * DrushCommands constructor.
-   *
-   * @param \Drupal\openy_traction_rec_import\Importer $importer
-   *   The Traction Rec importer service.
-   * @param \Drupal\openy_traction_rec_import\Cleaner $cleaner
-   *   OPENY sessions cleaner.
-   * @param \Drupal\Core\File\FileSystemInterface $file_system
-   *   The file handler.
-   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
-   *   The entity type manager.
-   * @param \Drupal\openy_traction_rec_import\TractionRecFetcher $tr_fetch
-   *   The OPENY TractionRec Fetcher.
-   */
   public function __construct(
-    Importer $importer,
-    Cleaner $cleaner,
-    FileSystemInterface $file_system,
-    EntityTypeManagerInterface $entity_type_manager,
-    TractionRecFetcher $tr_fetch
+    #[Autowire(service: 'openy_traction_rec_import.importer')]
+    protected Importer $importer,
+    #[Autowire(service: 'openy_traction_rec_import.cleaner')]
+    protected Cleaner $cleaner,
+    #[Autowire(service: 'file_system')]
+    protected FileSystemInterface $fileSystem,
+    #[Autowire(service: 'entity_type.manager')]
+    protected EntityTypeManagerInterface $entityTypeManager,
+    #[Autowire(service: 'openy_traction_rec_import.fetcher')]
+    protected TractionRecFetcher $tractionRecFetcher,
+    #[Autowire(service: 'database')]
+    protected Connection $database,
   ) {
     parent::__construct();
-    $this->importer = $importer;
-    $this->cleaner = $cleaner;
-    $this->fileSystem = $file_system;
-    $this->entityTypeManager = $entity_type_manager;
-    $this->tractionRecFetcher = $tr_fetch;
-
-    $this->siteAliasManager = Drush::service('site.alias.manager');
-    $this->processManager = Drush::processManager();
   }
 
   /**
@@ -97,20 +50,15 @@ class OpenyTractionRecImportCommands extends DrushCommands {
    * @param array $options
    *   Additional options for the command.
    *
-   * @command openy-tr:import
-   * @aliases tr:import
-   *
-   * @option sync Sync source and destination. Delete destination records that
-   *   do not exist in the source.
-   * @option update  In addition to processing unprocessed items from the
-   *   source, update previously-imported items with the current data.
-   *
    * @return bool
    *   Execution status.
    *
    * @throws \Exception
    */
-  public function import(array $options): bool {
+  #[CLI\Command(name: 'openy-tr:import', aliases: ['tr:import'])]
+  #[CLI\Option(name: 'sync', description: 'Sync source and destination. Delete destination records that do not exist in the source.')]
+  #[CLI\Option(name: 'update', description: 'In addition to processing unprocessed items from the source, update previously-imported items with the current data.')]
+  public function import(array $options = ['sync' => FALSE, 'update' => FALSE]): bool {
     if (!$this->importer->isEnabled()) {
       $this->logger()->notice($this->t(
         'The Traction Rec import is not enabled! Enable the
@@ -162,14 +110,12 @@ class OpenyTractionRecImportCommands extends DrushCommands {
 
   /**
    * Executes the Traction Rec rollback.
-   *
-   * @command openy-tr:rollback
-   * @aliases tr:rollback
    */
+  #[CLI\Command(name: 'openy-tr:rollback', aliases: ['tr:rollback'])]
   public function rollback() {
     try {
       $this->output()->writeln('Rolling back Traction Rec migrations...');
-      $this->processManager->drush(
+      $this->processManager()->drush(
         $this->siteAliasManager->getSelf(),
         'migrate:rollback',
         [],
@@ -184,10 +130,8 @@ class OpenyTractionRecImportCommands extends DrushCommands {
 
   /**
    * Resets the import lock.
-   *
-   * @command openy-tr:reset-lock
-   * @aliases tr:reset-lock
    */
+  #[CLI\Command(name: 'openy-tr:reset-lock', aliases: ['tr:reset-lock'])]
   public function resetLock() {
     $this->output()->writeln('Reset import status...');
     $this->importer->releaseLock();
@@ -198,11 +142,9 @@ class OpenyTractionRecImportCommands extends DrushCommands {
    *
    * @param array $options
    *   The array of command options.
-   *
-   * @command openy-tr:clean-up
-   * @aliases tr:clean-up
    */
-  public function cleanUp(array $options) {
+  #[CLI\Command(name: 'openy-tr:clean-up', aliases: ['tr:clean-up'])]
+  public function cleanUp(array $options = []) {
     $this->output()->writeln('Starting clean up...');
     $this->cleaner->cleanBackupFiles();
     $this->output()->writeln('Clean up finished!');
@@ -210,10 +152,8 @@ class OpenyTractionRecImportCommands extends DrushCommands {
 
   /**
    * Run Traction Rec fetcher.
-   *
-   * @command openy-tr:fetch-all
-   * @aliases tr:fetch
    */
+  #[CLI\Command(name: 'openy-tr:fetch-all', aliases: ['tr:fetch'])]
   public function fetch() {
     if (!$this->tractionRecFetcher->isEnabled()) {
       $this->logger()->notice($this->t(
@@ -241,10 +181,8 @@ class OpenyTractionRecImportCommands extends DrushCommands {
 
   /**
    * Run Traction Rec Total Available sync.
-   *
-   * @command openy-tr:quick-availability-sync
-   * @aliases tr:qas
    */
+  #[CLI\Command(name: 'openy-tr:quick-availability-sync', aliases: ['tr:qas'])]
   public function updateTotalAvailable() {
     if (!$this->tractionRecFetcher->isEnabled()) {
       $this->logger()->notice($this->t(
@@ -263,7 +201,7 @@ class OpenyTractionRecImportCommands extends DrushCommands {
     $this->logger()->notice("Fetching data from Traction Rec.");
     $totalAvailableList = $this->tractionRecFetcher->fetchTotalAvailable();
 
-    $migration_map = \Drupal::database()->select('migrate_map_tr_sessions_import', 'm')
+    $migration_map = $this->database->select('migrate_map_tr_sessions_import', 'm')
       ->fields('m', ['sourceid1', 'destid1'])
       ->execute()
       ->fetchAllKeyed();
