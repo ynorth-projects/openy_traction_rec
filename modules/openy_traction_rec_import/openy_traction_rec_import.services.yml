@@ -33,4 +33,4 @@ services:
 
   logger.channel.tr_import:
     parent: logger.channel_base
-    arguments: ['openy_trasnsaction_rec_import']
+    arguments: ['openy_traction_rec_import']

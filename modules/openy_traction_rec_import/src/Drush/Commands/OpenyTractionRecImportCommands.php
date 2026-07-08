@@ -7,6 +7,7 @@ use Consolidation\SiteAlias\SiteAliasManagerAwareTrait;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\File\FileSystemInterface;
+use Drupal\Core\Logger\LoggerChannelInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
@@ -40,6 +41,8 @@ final class OpenyTractionRecImportCommands extends DrushCommands implements Site
     protected TractionRecFetcher $tractionRecFetcher,
     #[Autowire(service: 'database')]
     protected Connection $database,
+    #[Autowire(service: 'logger.channel.tr_import')]
+    protected LoggerChannelInterface $tractionRecLogChannel,
   ) {
     parent::__construct();
   }
@@ -60,7 +63,7 @@ final class OpenyTractionRecImportCommands extends DrushCommands implements Site
   #[CLI\Option(name: 'update', description: 'In addition to processing unprocessed items from the source, update previously-imported items with the current data.')]
   public function import(array $options = ['sync' => FALSE, 'update' => FALSE]): bool {
     if (!$this->importer->isEnabled()) {
-      $this->logger()->notice($this->t(
+      $this->tractionRecLogChannel->notice($this->t(
         'The Traction Rec import is not enabled! Enable the
         "openy_traction_rec_import" module, then enable the syncer at @settings.',
         [
@@ -75,7 +78,7 @@ final class OpenyTractionRecImportCommands extends DrushCommands implements Site
     }
 
     if (!$this->importer->acquireLock()) {
-      $this->logger()->notice(
+      $this->tractionRecLogChannel->notice(
         'Can\'t run a new import, another import process is in progress.
         Try "openy-tr:reset-lock" if the process seems stuck.'
       );
@@ -83,7 +86,7 @@ final class OpenyTractionRecImportCommands extends DrushCommands implements Site
     }
 
     if (!$this->importer->checkMigrationsStatus()) {
-      $this->logger()->notice(
+      $this->tractionRecLogChannel->notice(
         'One or more migrations are still running or stuck. Run
         "drush migrate:status" to see the status of migrations and
         "drush migrate:reset migrationId" to reset the stuck migration.');
@@ -94,7 +97,7 @@ final class OpenyTractionRecImportCommands extends DrushCommands implements Site
 
     $dirs = $this->importer->getJsonDirectoriesList();
     if (empty($dirs)) {
-      $this->logger()->info('No Traction Rec data to import.');
+      $this->tractionRecLogChannel->notice('No Traction Rec data to import.');
       return FALSE;
     }
 
@@ -124,7 +127,7 @@ final class OpenyTractionRecImportCommands extends DrushCommands implements Site
       $this->output()->writeln('Rollback done!');
     }
     catch (\Exception $e) {
-      $this->logger()->error($e->getMessage());
+      $this->tractionRecLogChannel->error($e->getMessage());
     }
   }
 
@@ -156,7 +159,7 @@ final class OpenyTractionRecImportCommands extends DrushCommands implements Site
   #[CLI\Command(name: 'openy-tr:fetch-all', aliases: ['tr:fetch'])]
   public function fetch() {
     if (!$this->tractionRecFetcher->isEnabled()) {
-      $this->logger()->notice($this->t(
+      $this->tractionRecLogChannel->notice($this->t(
         'The Traction Rec fetcher is not enabled! Enable the fetcher at @settings',
         [
           '@settings' =>
@@ -168,14 +171,14 @@ final class OpenyTractionRecImportCommands extends DrushCommands implements Site
       return FALSE;
     }
 
-    $this->logger()->notice("Fetching data from Traction Rec.");
+    $this->tractionRecLogChannel->notice("Fetching data from Traction Rec.");
     $fetch = $this->tractionRecFetcher->fetch();
 
     if (!is_dir($fetch)) {
-      $this->logger()->warning('Traction Rec data fetch failed. Check the logs for more info.');
+      $this->tractionRecLogChannel->warning('Traction Rec data fetch failed. Check the logs for more info.');
     }
     else {
-      $this->logger()->notice("Traction Rec data fetched to " . $fetch);
+      $this->tractionRecLogChannel->notice("Traction Rec data fetched to " . $fetch);
     }
   }
 
@@ -185,7 +188,7 @@ final class OpenyTractionRecImportCommands extends DrushCommands implements Site
   #[CLI\Command(name: 'openy-tr:quick-availability-sync', aliases: ['tr:qas'])]
   public function updateTotalAvailable() {
     if (!$this->tractionRecFetcher->isEnabled()) {
-      $this->logger()->notice($this->t(
+      $this->tractionRecLogChannel->notice($this->t(
         'The Traction Rec fetcher is not enabled! Enable the fetcher at @settings',
         [
           '@settings' =>
@@ -198,7 +201,7 @@ final class OpenyTractionRecImportCommands extends DrushCommands implements Site
     }
 
     $count = 0;
-    $this->logger()->notice("Fetching data from Traction Rec.");
+    $this->tractionRecLogChannel->notice("Fetching data from Traction Rec.");
     $totalAvailableList = $this->tractionRecFetcher->fetchTotalAvailable();
 
     $migration_map = $this->database->select('migrate_map_tr_sessions_import', 'm')
@@ -213,13 +216,13 @@ final class OpenyTractionRecImportCommands extends DrushCommands implements Site
           $totalCapacityAvailable = $totalAvailableItem['Unlimited_Capacity'] ? 100 : max((int) $totalAvailableItem['Total_Capacity_Available'], 0);
           $node->set('field_availability', $totalCapacityAvailable);
           $node->set('waitlist_unlimited_capacity', $totalAvailableItem['Unlimited_Waitlist_Capacity']);
-          $node->set('waitlist_capacity', $totalAvailableItem['Waitlist_Total']);
+          $node->set('waitlist_capacity', $totalAvailableItem['Waitlist_Capacity']);
           $node->save();
           $count++;
         }
       }
     }
-    $this->logger()->notice($this->t('Total available data were synced for @count sessions', ['@count' => $count]));
+    $this->tractionRecLogChannel->notice($this->t('Total available data were synced for @count sessions', ['@count' => $count]));
   }
 
 }
