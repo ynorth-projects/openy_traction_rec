@@ -195,7 +195,6 @@ class TractionRec implements TractionRecInterface {
       FROM TREX1__Course_Session_Option__c
       WHERE TREX1__Course_Option__r.TREX1__Available_Online__c = true
         AND TREX1__Course_Session_Option__c.TREX1__Available_Online__c = true
-        AND TREX1__Course_Option__r.TREX1__Day_of_Week__c  != null
         AND TREX1__Course_Option__r.TREX1__Register_Online_From_Date__c <= TODAY
         AND TREX1__Course_Option__r.TREX1__Register_Online_To_Date__c > YESTERDAY
         AND TREX1__Course_Option__r.TREX1__End_Date__c >= TODAY
@@ -275,7 +274,6 @@ class TractionRec implements TractionRecInterface {
         TREX1__Course_Option__r.TREX1__Unlimited_Capacity__c
       FROM TREX1__Course_Session_Option__c
       WHERE TREX1__Course_Option__r.TREX1__Available_Online__c = true
-        AND TREX1__Course_Option__r.TREX1__Day_of_Week__c  != null
         AND TREX1__Course_Option__r.TREX1__Register_Online_To_Date__c > YESTERDAY
         AND TREX1__Course_Option__r.TREX1__End_Date__c >= TODAY
         AND TREX1__Course_Option__r.TREX1__Start_Date__c != null');
