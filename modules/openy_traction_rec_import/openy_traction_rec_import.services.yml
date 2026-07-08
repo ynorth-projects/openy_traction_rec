@@ -8,6 +8,9 @@ services:
       - '@plugin.manager.migration'
       - '@entity_type.manager'
       - '@file_system'
+      - '@keyvalue'
+      - '@datetime.time'
+      - '@string_translation'
 
   openy_traction_rec_import.cleaner:
     class: 'Drupal\openy_traction_rec_import\Cleaner'

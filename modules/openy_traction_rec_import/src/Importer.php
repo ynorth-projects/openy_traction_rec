@@ -2,12 +2,15 @@
 
 namespace Drupal\openy_traction_rec_import;
 
+use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\File\FileSystemInterface;
+use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
 use Drupal\Core\Lock\LockBackendInterface;
 use Drupal\Core\Logger\LoggerChannelInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
+use Drupal\Core\StringTranslation\TranslationInterface;
 use Drupal\migrate\MigrateMessage;
 use Drupal\migrate\Plugin\MigrationInterface;
 use Drupal\migrate\Plugin\MigrationPluginManager;
@@ -104,6 +107,27 @@ class Importer implements TractionRecImporterInterface {
   protected $fileSystem;
 
   /**
+   * the key value factory.
+   *
+   * @var \Drupal\Core\KeyValueStore\KeyValueFactoryInterface
+   */
+  protected KeyValueFactoryInterface $keyValue;
+
+  /**
+   * The time service.
+   *
+   * @var \Drupal\Component\Datetime\TimeInterface
+   */
+  protected TimeInterface $time;
+
+  /**
+   * The translation service.
+   *
+   * @var \Drupal\Core\StringTranslation\TranslationInterface
+   */
+  protected TranslationInterface $translation;
+
+  /**
    * Importer constructor.
    *
    * @param \Drupal\Core\Lock\LockBackendInterface $lock
@@ -118,6 +142,12 @@ class Importer implements TractionRecImporterInterface {
    *   The entity type manager.
    * @param \Drupal\Core\File\FileSystemInterface $file_system
    *   The filesystem service.
+   * @param \Drupal\Core\KeyValueStore\KeyValueFactoryInterface $keyValue
+   *   The key value factory.
+   * @param \Drupal\Component\Datetime\TimeInterface $time
+   *   The time service.
+   * @param \Drupal\Core\StringTranslation\TranslationInterface $translation
+   *   The translation service.
    */
   public function __construct(
     LockBackendInterface $lock,
@@ -125,7 +155,10 @@ class Importer implements TractionRecImporterInterface {
     ConfigFactoryInterface $config_factory,
     MigrationPluginManager $migrationPluginManager,
     EntityTypeManagerInterface $entity_type_manager,
-    FileSystemInterface $file_system
+    FileSystemInterface $file_system,
+    KeyValueFactoryInterface $keyValue,
+    TimeInterface $time,
+    TranslationInterface $translation
   ) {
     $this->lock = $lock;
     $this->logger = $logger;
@@ -133,6 +166,9 @@ class Importer implements TractionRecImporterInterface {
     $this->migrationPluginManager = $migrationPluginManager;
     $this->entityTypeManager = $entity_type_manager;
     $this->fileSystem = $file_system;
+    $this->keyValue = $keyValue;
+    $this->time = $time;
+    $this->translation = $translation;
 
     $settings = $this->configFactory->get('openy_traction_rec_import.settings');
     $this->isEnabled = (bool) $settings->get('enabled');
@@ -172,7 +208,14 @@ class Importer implements TractionRecImporterInterface {
           }
 
           // Get an instance of MigrateExecutable.
-          $migrate_executable = new MigrateExecutable($migration, new MigrateMessage(), $options);
+          $migrate_executable = new MigrateExecutable(
+            $migration,
+            new MigrateMessage(),
+            $this->keyValue,
+            $this->time,
+            $this->translation,
+            $options
+          );
 
           // Call the method to execute the migration.
           $migrate_executable->import();
