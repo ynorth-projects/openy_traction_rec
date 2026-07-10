@@ -97,7 +97,7 @@ class SessionTime extends ProcessPluginBase implements ContainerFactoryPluginInt
       $end_time = $value['end_time'] ?? '11:59 pm';
       $end_date = $this->convertDate($end_date . ' ' . $end_time);
 
-      $days = explode(';', $value['days']);
+      $days = explode(';', $value['days'] ?? '');
       $days = array_map('strtolower', $days);
 
       // We shouldn't create a paragraph entity here.
