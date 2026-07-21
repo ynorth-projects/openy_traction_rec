@@ -6,11 +6,11 @@
     "minimum-stability": "dev",
     "prefer-stable": true,
     "require": {
-        "php": "^8",
+        "php": "^8.3",
         "ycloudyusa/yusaopeny": "9.* || dev-9.x-2.x || dev-main || *",
         "ycloudyusa/yusaopeny_activity_finder": "^4.0 || *",
         "open-y-subprojects/openy_features": "^1.5 || *",
-        "drush/drush": "^13 || ^12",
+        "drush/drush": "^13",
         "drupal/migrate_plus": "^6",
         "drupal/migrate_tools": "^6.1",
         "drupal/key": "^1.15",
