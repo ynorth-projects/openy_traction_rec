@@ -110,7 +110,7 @@ class TractionRecFetcher {
   public function fetchSessions() {
     $result = $this->tractionRec->loadCourseOptions();
 
-    if (empty($result['records'])) {
+    if (!isset($result['records'])) {
       return [];
     }
 
@@ -165,7 +165,7 @@ class TractionRecFetcher {
   public function fetchLocations(): array {
     $result = $this->tractionRec->loadLocations();
 
-    if (empty($result['records'])) {
+    if (!isset($result['records'])) {
       return [];
     }
 
@@ -184,7 +184,7 @@ class TractionRecFetcher {
   public function fetchClasses():void {
     $result = $this->tractionRec->loadCourses();
 
-    if (empty($result['records'])) {
+    if (!isset($result['records'])) {
       return;
     }
 
@@ -197,7 +197,7 @@ class TractionRecFetcher {
   public function fetchProgramAndCategories():void {
     $result = $this->tractionRec->loadProgramCategoryTags();
 
-    if (empty($result['records'])) {
+    if (!isset($result['records'])) {
       return;
     }
 
